@@ -6,7 +6,7 @@ The data set is from Quandl & Sharadar containing historical financial informati
   2) The Daily table, which contained daily variables like price, volume, and enterprise values (8 variables), and 
   3) The Tickers table which included metadata like firm size, industry, and sector (34 variables). 
 
-Unfortuantly I do not have permission to share the dataset used. 
+Unfortunately, I do not have permission to share the dataset used.
 
 The attached R Markdown file includes analysis not described above, for example correspondence analysis, that I tested but did not pursue further to include in the final project submission. 
 
