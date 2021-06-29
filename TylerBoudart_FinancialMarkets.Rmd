@@ -1,0 +1,641 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+## R Markdown---
+title: "Final Project: Milestone 5 (Summary of Individual Analysis)"
+author: "Tyler Boudart"
+date: "5/29/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Add code to upload file in cell below.
+```{r LoadData, echo=FALSE, warning=FALSE, message = FALSE}
+
+```
+
+```{r librarys, echo=FALSE, warning=FALSE, message = FALSE}
+library(corrplot)
+library(dplyr)
+library(psych)
+library(Amelia)
+library(leaps)
+library(car)
+library(glmnet)
+library(caret)
+library(vcd)
+library(ca)
+library(stringr)
+library(tidyr)
+```
+
+Remove index/ID number and industry.
+```{r dataClean, echo=FALSE, warning=FALSE, message = FALSE}
+technologyData <- technologyData %>% select(-c(1, 22)) %>% na.omit(technologyData)
+```
+
+### Test correlation
+
+```{r corrTest, echo=FALSE, warning=FALSE, message = FALSE}
+corrTest <- corr.test(technologyData, adjust="none")
+corrSig <- ifelse(corrTest$p < .05, corrTest$r, 0)
+corrSig
+```
+
+
+```{r corrTestCount, warning=FALSE, message = FALSE}
+corrSigCount <- ifelse(corrTest$p < .05, TRUE, FALSE)
+colSums(corrSigCount)-1
+```
+
+### Data transformations
+
+```{r dropPrice, echo=FALSE}
+techNumeric <- technologyData
+```
+
+```{r transformations, echo=FALSE}
+techNumeric$assetsLN <- log(technologyData$assets + .00001 - min(technologyData$assets))
+techNumeric$gpLN <- log(technologyData$gp + .00001 - min(technologyData$gp))
+techNumeric$intexpLN <- log(technologyData$intexp + .00001 - min(technologyData$intexp))
+techNumeric$liabilitiesLN <- log(technologyData$liabilities + .00001 - min(technologyData$liabilities))
+techNumeric$opexLN <- log(technologyData$opex + .00001 - min(technologyData$opex))
+techNumeric$ppnenetLN <- log(technologyData$ppnenet + .00001 - min(technologyData$ppnenet))
+techNumeric$rndLN <- log(technologyData$rnd + .00001 - min(technologyData$rnd))
+techNumeric$investmentsLN <- log(technologyData$investments + .00001 - min(technologyData$investments))
+techNumeric$debtLN <- log(technologyData$debt + .00001 - min(technologyData$debt))
+techNumeric$ebitLN <- log(technologyData$ebit + .00001 - min(technologyData$ebit))
+techNumeric$ebitdaLN <- log(technologyData$ebitda + .00001 - min(technologyData$ebitda))
+techNumeric$ebtLN <- log(technologyData$ebt + .00001 - min(technologyData$ebt))
+techNumeric$ncfdivLN <- log(technologyData$ncfdiv + .00001 - min(technologyData$ncfdiv))
+techNumeric$marketcapLN <- log(technologyData$marketcap + .00001 - min(technologyData$marketcap))
+techNumeric$ncfoLN <- log(technologyData$ncfo + .00001 - min(technologyData$ncfo))
+techNumeric$netincLN <- log(technologyData$netinc + .00001 - min(technologyData$netinc))
+techNumeric$revenueLN <- log(technologyData$revenue + .00001 - min(technologyData$revenue))
+techNumeric$equityLN <- log(technologyData$equity + .00001 - min(technologyData$equity))
+```
+
+```{r transformations2, echo=FALSE}
+techNumeric$avgTotLiabLN <-  log(techNumeric$avgTotLiab + 0.00001 - min(techNumeric$avgTotLiab))
+techNumeric$EBITmarginLN <-  log(techNumeric$EBITmargin + 0.00001 - min(techNumeric$EBITmargin))
+techNumeric$ROALN <-  log(techNumeric$ROA + 0.00001 - min(techNumeric$ROA))
+techNumeric$debtToAssetsLN <-  log(techNumeric$debtToAssets + 0.00001 - min(techNumeric$debtToAssets))
+techNumeric$interestCoverageRatioLN <-  log(techNumeric$interestCoverageRatio + 0.00001 - min(techNumeric$interestCoverageRatio))
+techNumeric$sustGrowthRtLN <-  log(techNumeric$sustGrowthRt + 0.00001 - min(techNumeric$sustGrowthRt))
+techNumeric$avgTotEquityLN <-  log(techNumeric$avgTotEquity + 0.00001 - min(techNumeric$avgTotEquity))
+techNumeric$interestBurdenLN <-  log(techNumeric$interestBurden + 0.00001 - min(techNumeric$interestBurden))
+techNumeric$assetTurnoverLN <-  log(techNumeric$assetTurnover + 0.00001 - min(techNumeric$assetTurnover))
+techNumeric$ROELN <-  log(techNumeric$ROE + 0.00001 - min(techNumeric$ROE))
+techNumeric$debtToEquityLN <-  log(techNumeric$debtToEquity + 0.00001 - min(techNumeric$debtToEquity))
+techNumeric$plowBackRtLN <-  log(techNumeric$plowBackRt + 0.00001 - min(techNumeric$plowBackRt))
+techNumeric$avgTotAssetsLN <-  log(techNumeric$avgTotAssets + 0.00001 - min(techNumeric$avgTotAssets))
+techNumeric$taxBurdenLN <-  log(techNumeric$taxBurden + 0.00001 - min(techNumeric$taxBurden))
+techNumeric$profitMarginLN <-  log(techNumeric$profitMargin + 0.00001 - min(techNumeric$profitMargin))
+techNumeric$leverageRatioLN <-  log(techNumeric$leverageRatio + 0.00001 - min(techNumeric$leverageRatio))
+techNumeric$debtToCapitalLN <-  log(techNumeric$debtToCapital + 0.00001 - min(techNumeric$debtToCapital))
+techNumeric$divPayRtLN <-  log(techNumeric$divPayRt + 0.00001 - min(techNumeric$divPayRt))
+
+```
+
+### Explore some relationshops with log market capitalization
+
+```{r plotsv1, warning=FALSE, message = FALSE}
+plot(techNumeric$avgTotAssets,techNumeric$marketcapLN)
+```
+
+```{r plots2, warning=FALSE, message = FALSE}
+plot(techNumeric$assetsLN,techNumeric$marketcapLN)
+```
+
+```{r plots2, warning=FALSE, message = FALSE}
+plot(techNumeric$assets,techNumeric$marketcap)
+```
+
+### Fit OLS and explore residuals
+
+```{r marketCapLMPreliminary}
+markCapLmModel <- lm(marketcapLN ~ assets + gp + intexp +  liabilities + opex + ppnenet + rnd, data=techNumeric)
+summary(markCapLmModel)
+vif(markCapLmModel)
+sqrt(mean(markCapLmModel$residuals^2))
+```
+
+
+```{r plotResidual}
+plot(markCapLmModel)
+```
+
+multiplicative errors.... need to transfer Y with Natural Log 
+
+
+
+```{r logMarketCapLog}
+markCapLmModelLog <- lm(log(marketcap) ~ assetsLN + investmentsLN, data=techNumeric)
+summary(markCapLmModelLog)
+vif(markCapLmModelLog)
+sqrt(mean(markCapLmModelLog$residuals^2))
+```
+
+```{r logMarketCapLMTest}
+plot(markCapLmModelLog)
+```
+
+
+```{r logMarketCapLMTrans2}
+markCapLmModelLN <- lm(marketcapLN ~ assetsLN + rndLN + investmentsLN, data=techNumeric)
+summary(markCapLmModelLN)
+vif(markCapLmModelLN)
+sqrt(mean(markCapLmModelLN$residuals^2))
+```
+
+```{r logMarketCapLMTransPlot}
+plot(markCapLmModelLN)
+```
+
+
+# Split data into training and testing sets (75%/25%). 
+
+```{r dataFramesSplit2}
+set.seed(210)
+tIndex <- createDataPartition(techNumeric[,11], p = .75,
+                                  list = FALSE,
+                                  times = 1)
+train <- techNumeric[tIndex,]
+test <- techNumeric[-tIndex,]
+
+xTrain <- as.matrix(train[,c(1:10, 12:51, 53:74)])
+yTrain <- as.matrix(train[,52])
+xTest <- as.matrix(test[,c(1:10, 12:51, 53:74)])
+yTest <- as.matrix(test[,52])
+```
+
+### Lasso regression
+
+```{r marketCapLasso}
+LassoModel <- cv.glmnet(xTrain, yTrain, alpha = 1)
+plot(LassoModel)
+```
+
+
+```{r marketCapLassov2}
+markCapLassoModel <- glmnet(xTrain, yTrain, alpha = 1)
+markCapLassoModel
+```
+
+```{r marketCapLassoCoef}
+coef(markCapLassoModel, s = 0.0) 
+```
+
+```{r marketCapLassoPredict}
+lassoPredTrain <- predict(markCapLassoModel, xTrain, s = 0.225) 
+rmseLassoPredTrain <- sqrt(mean((lassoPredTrain - yTrain)^2)) 
+rmseLassoPredTrain
+
+lassoPredTest <- predict(markCapLassoModel, xTest, s = 0.225) 
+rmseLassoTest <- sqrt(mean((lassoPredTest - yTest)^2)) 
+rmseLassoTest
+
+
+percentChange <- round(((rmseLassoTest/rmseLassoPredTrain)-1)*100, digits = 2)
+percentChange
+```
+
+```{r marketCapLassoResidualPlot}
+residual = lassoPredTest - yTest
+plot(lassoPredTest, residual)
+```
+
+```{r marketCapLassoResidualQQPlot}
+qqnorm(residual, pch = 1, frame = FALSE)
+qqline(residual, col = "steelblue", lwd = 2)
+```
+
+```{r marketCapLassoResidualStdResidualPlot}
+residualStd = residual/sd(residual)
+plot(lassoPredTest, residualStd)
+```
+
+```{r marketCapLassoResidualStdResidualPercent}
+x = residualStd[ residualStd > -3 & residualStd < 3]
+length(x)/length(residualStd)
+```
+
+### Relaxed Lasso Regression
+
+
+```{r marketCapLassoRelaxed}
+LassoRelaxModel <- cv.glmnet(xTrain, yTrain, alpha = 1, relax = TRUE)
+plot(LassoRelaxModel)
+```
+
+
+```{r marketCapLassoRelaxv2}
+markCapLassoRelaxModel <- glmnet(xTrain, yTrain, alpha = 1, relax = TRUE)
+markCapLassoRelaxModel
+```
+
+```{r marketCapLassoRelaxCoef}
+coef(markCapLassoRelaxModel, s = 0.225, gamma = 0.0) 
+```
+
+
+```{r marketCapLassoRelaxPredict}
+lassoRelaxPredTrain <- predict(markCapLassoRelaxModel, xTrain, s = 0.225, gamma = 0.0) 
+rmseLassoRelaxPredTrain <- sqrt(mean((lassoRelaxPredTrain - yTrain)^2)) 
+rmseLassoRelaxPredTrain
+
+lassoRelaxPredTest <- predict(markCapLassoRelaxModel, xTest, s = 0.225, gamma = 0.0)  
+rmseLassoRelaxTest <- sqrt(mean((lassoRelaxPredTest - yTest)^2)) 
+rmseLassoRelaxTest
+
+
+percentChange <- round(((rmseLassoRelaxTest/rmseLassoRelaxPredTrain)-1)*100, digits = 2)
+percentChange
+```
+
+cor(tech)
+
+```{r marketCapLassoRelaxResidualPlot}
+residual = lassoRelaxPredTest - yTest
+plot(lassoRelaxPredTest, residual)
+```
+
+```{r marketCapLassoRelaxResidualQQPlot}
+qqnorm(residual, pch = 1, frame = FALSE)
+qqline(residual, col = "steelblue", lwd = 2)
+```
+
+### Test Lasso select feautes with OLS model
+
+
+```{r logMarketCapLMTrans}
+markCapLmModelLN2 <- lm(marketcapLN ~ + assetsLN + investmentsLN, data=techNumeric)
+summary(markCapLmModelLN2)
+vif(markCapLmModelLN2)
+sqrt(mean(markCapLmModelLN2$residuals^2))
+```
+
+```{r logMarketCapLMTransLNPlot}
+plot(markCapLmModelLN2)
+```
+
+### Elastic Net Models
+
+#### alpha = .75
+
+```{r marketCapNet.75}
+markCapENet75Model <- glmnet(xTrain, yTrain, alpha = .75)
+markCapENet75Model
+```
+
+
+```{r marketCapNet75Coef}
+coef(markCapENet75Model, s = 0.249)
+```
+
+```{r marketCapNet.75Predict}
+Net75PredTrain <- predict(markCapENet75Model, xTrain, s = 0.249) 
+rmseNet75PredTrain <- sqrt(mean((Net75PredTrain - yTrain)^2)) 
+rmseNet75PredTrain
+
+Net75PredTest <- predict(markCapENet75Model, xTest, s = 0.249) 
+rmseNet75Test <- sqrt(mean((Net75PredTest - yTest)^2)) 
+rmseNet75Test
+
+
+percentChange <- round(((rmseNet75Test/rmseNet75PredTrain)-1)*100, digits = 2)
+percentChange
+```
+R-square  = 78.99 per table 
+
+#### alpha = .5
+
+
+```{r marketCapNet.5}
+markCapENet50Model <- glmnet(xTrain, yTrain, alpha = .5)
+markCapENet50Model
+```
+
+```{r marketCapNet50Coef}
+coef(markCapENet50Model, s = 0.4093)
+```
+
+```{r marketCapNet50Predict}
+Net50PredTrain <- predict(markCapENet50Model, xTrain, s = 0.4093) 
+rmseNet50PredTrain <- sqrt(mean((Net50PredTrain - yTrain)^2)) 
+rmseNet50PredTrain
+
+Net50PredTest <- predict(markCapENet50Model, xTest, s = 0.4093) 
+rmseNet50Test <- sqrt(mean((Net50PredTest - yTest)^2)) 
+rmseNet50Test
+
+
+percentChange <- round(((rmseNet50Test/rmseNet50PredTrain)-1)*100, digits = 2)
+percentChange
+```
+R-square  = 78.46 per table 
+
+#### alpha = .85
+
+```{r marketCapNet.85}
+markCapENet85Model <- glmnet(xTrain, yTrain, alpha = .85)
+markCapENet85Model
+```
+
+```{r marketCapNet85Coef}
+coef(markCapENet85Model, s = 0.34950)
+```
+
+```{r marketCapNet85Predict}
+Net85PredTrain <- predict(markCapENet85Model, xTrain, s = 0.3495) 
+rmseNet85PredTrain <- sqrt(mean((Net85PredTrain - yTrain)^2)) 
+rmseNet85PredTrain
+
+Net85PredTest <- predict(markCapENet85Model, xTest, s = 0.3495) 
+rmseNet85Test <- sqrt(mean((Net85PredTest - yTest)^2)) 
+rmseNet85Test
+
+
+percentChange <- round(((rmseNet85Test/rmseNet85PredTrain)-1)*100, digits = 2)
+percentChange
+```
+
+Rsquare = 78.21
+
+### Ridge Models
+
+#### Ridge model using all predictors
+
+
+```{r marketCapRidge}
+RidgeModel <- cv.glmnet(xTrain, yTrain, alpha = 0)
+plot(RidgeModel)
+```
+
+
+```{r marketCapRidgev2}
+markCapRidgeModel <- glmnet(xTrain, yTrain, alpha = 0)
+markCapRidgeModel
+```
+
+
+```{r marketRidgeCoef}
+coef(markCapRidgeModel, s = RidgeModel$lambda.1se)
+```
+
+```{r marketRidgePredict}
+RidgePredTrain <- predict(markCapRidgeModel, xTrain, s = RidgeModel$lambda.1se) 
+rmseRidgePredTrain <- sqrt(mean((RidgePredTrain - yTrain)^2)) 
+rmseRidgePredTrain
+
+RidgePredTest <- predict(markCapRidgeModel, xTest, s = RidgeModel$lambda.1se) 
+rmseRidgeTest <- sqrt(mean((RidgePredTest - yTest)^2)) 
+rmseRidgeTest
+
+
+percentChange <- round(((rmseRidgeTest/rmseRidgePredTrain)-1)*100, digits = 2)
+percentChange
+```
+
+R-square around 77.08
+
+#### Ridge model using three Lasso selected predictors
+
+
+```{r dataFramesRidge3, echo=FALSE}
+xTrain3 <- as.matrix(train[,c("assetsLN", "avgTotAssetsLN", "investmentsLN")])
+xTest3 <- as.matrix(test[,c("assetsLN", "avgTotAssetsLN", "investmentsLN")])
+
+```
+
+
+```{r marketCapRidge3}
+RidgeModel3 <- cv.glmnet(xTrain3, yTrain, alpha = 0)
+plot(RidgeModel3)
+```
+
+
+```{r marketCapRidge3v2}
+markCapRidgeModel3 <- glmnet(xTrain3, yTrain, alpha = 0)
+markCapRidgeModel3
+```
+
+```{r marketCapRidge3Coef}
+coef(markCapRidgeModel3, s = RidgeModel3$lambda.1se)
+```
+
+
+```{r marketRidge3Predict}
+Ridge3PredTrain <- predict(markCapRidgeModel3, xTrain3, s = RidgeModel3$lambda.1se) 
+rmseRidge3PredTrain <- sqrt(mean((Ridge3PredTrain - yTrain)^2)) 
+rmseRidge3PredTrain
+
+Ridge3PredTest <- predict(markCapRidgeModel3, xTest3, s = RidgeModel3$lambda.1se) 
+rmseRidge3Test <- sqrt(mean((Ridge3PredTest - yTest)^2)) 
+rmseRidge3Test
+
+
+percentChange <- round(((rmseRidge3Test/rmseRidge3PredTrain)-1)*100, digits = 2)
+percentChange
+```
+
+R-square 79.59
+
+
+```{r marketCapRidge3ResidualPlot, echo=FALSE}
+residual = Ridge3PredTest - yTest
+plot(Ridge3PredTest, residual)
+```
+
+```{r marketCapRidge3ResidualQQPlot}
+qqnorm(residual, pch = 1, frame = FALSE)
+qqline(residual, col = "steelblue", lwd = 2)
+```
+
+```{r marketCapRidge3ResidualStdResidualPlot}
+residualStd = residual/sd(residual)
+plot(Ridge3PredTest, residualStd)
+```
+
+```{r marketCapRidge3ResidualStdResidualPercent}
+x = residualStd[ residualStd > -3 & residualStd < 3]
+length(x)/length(residualStd)
+```
+
+
+
+#### Ridge model using two Lasso selected predictors
+
+
+
+```{r dataFramesRidge2, echo=FALSE}
+xTrain2 <- as.matrix(train[,c("assetsLN", "investmentsLN")])
+xTest2 <- as.matrix(test[,c("assetsLN", "investmentsLN")])
+
+```
+
+```{r marketCapRidge2}
+RidgeModel2 <- cv.glmnet(xTrain2, yTrain, alpha = 0)
+plot(RidgeModel2)
+```
+
+
+```{r marketCapRidge2v2, echo=FALSE}
+markCapRidgeModel2 <- glmnet(xTrain2, yTrain, alpha = 0)
+markCapRidgeModel2
+```
+
+```{r marketCapRidge2Coef}
+coef(markCapRidgeModel2, s = 0)
+```
+
+
+```{r marketRidge2Predict}
+Ridge2PredTrain <- predict(markCapRidgeModel2, xTrain2, s = 0) 
+rmseRidge2PredTrain <- sqrt(mean((Ridge2PredTrain - yTrain)^2)) 
+rmseRidge2PredTrain
+
+Ridge2PredTest <- predict(markCapRidgeModel2, xTest2, s = 0) 
+rmseRidge2Test <- sqrt(mean((Ridge2PredTest - yTest)^2)) 
+rmseRidge2Test
+
+
+percentChange <- round(((rmseRidge2Test/rmseRidge2PredTrain)-1)*100, digits = 2)
+percentChange
+```
+
+R-square 79.31
+
+```{r marketCapRidgeResidualPlot}
+residual = Ridge2PredTest - yTest
+plot(Ridge2PredTest, residual)
+```
+
+```{r marketCapRidge2ResidualQQPlot}
+qqnorm(residual, pch = 1, frame = FALSE)
+qqline(residual, col = "steelblue", lwd = 2)
+```
+
+```{r marketCapRidgeResidual2StdResidualPlot}
+residualStd = residual/sd(residual)
+plot(Ridge3PredTest, residualStd)
+```
+
+```{r marketCapRidgeResidual2StdResidualPercent}
+x = residualStd[ residualStd > -3 & residualStd < 3]
+length(x)/length(residualStd)
+```
+
+### More Elastic Net Models, alpha = .90
+
+
+
+
+```{r marketCapNet90}
+markCapENet90Model <- glmnet(xTrain, yTrain, alpha = .90)
+markCapENet90Model
+```
+
+```{r marketCapNet90Coef}
+coef(markCapENet90Model, s = 0.3006)
+```
+
+```{r marketCapNet90Predict}
+Net90PredTrain <- predict(markCapENet90Model, xTrain, s = 0.3006) 
+rmseNet90PredTrain <- sqrt(mean((Net90PredTrain - yTrain)^2)) 
+rmseNet90PredTrain
+
+Net90PredTest <- predict(markCapENet90Model, xTest, s = 0.3006) 
+rmseNet90Test <- sqrt(mean((Net90PredTest - yTest)^2)) 
+rmseNet90Test
+
+
+percentChange <- round(((rmseNet90Test/rmseNet90PredTrain)-1)*100, digits = 2)
+percentChange
+```
+
+R-squared = 78.21
+
+### More Elastic Net Models, alpha = .95
+
+```{r marketCapNet95}
+markCapENet95Model <- glmnet(xTrain, yTrain, alpha = .95)
+markCapENet95Model
+```
+
+```{r marketCapNet95Coef}
+coef(markCapENet95Model, s = 0.2595)
+```
+
+```{r marketCapNet95Predict}
+Net95PredTrain <- predict(markCapENet95Model, xTrain, s = 0.2595) 
+rmseNet95PredTrain <- sqrt(mean((Net95PredTrain - yTrain)^2)) 
+rmseNet95PredTrain
+
+Net95PredTest <- predict(markCapENet95Model, xTest, s = 0.2595) 
+rmseNet95Test <- sqrt(mean((Net95PredTest - yTest)^2)) 
+rmseNet95Test
+
+
+percentChange <- round(((rmseNet95Test/rmseNet95PredTrain)-1)*100, digits = 2)
+percentChange
+```
+
+R-Squared = 78.21
+
+
+### More Elastic Net Models, alpha = .975
+
+```{r marketCapNet97.5}
+markCapENet975Model <- glmnet(xTrain, yTrain, alpha = .975)
+markCapENet975Model
+```
+
+```{r marketCapNet97.5Coef}
+coef(markCapENet975Model, s = 0.253)
+```
+
+```{r marketCapNet975Predict2}
+Net975PredTrain <- predict(markCapENet975Model, xTrain, s = 0.253) 
+rmseNet975PredTrain <- sqrt(mean((Net975PredTrain - yTrain)^2)) 
+rmseNet975PredTrain
+
+Net975PredTest <- predict(markCapENet975Model, xTest, s = 0.253) 
+rmseNet975Test <- sqrt(mean((Net975PredTest - yTest)^2)) 
+rmseNet975Test
+
+
+percentChange <- round(((rmseNet975Test/rmseNet975PredTrain)-1)*100, digits = 2)
+percentChange
+```
+
+
+```{r marketCapElastic975ResidualPlot}
+residual = Net975PredTest - yTest
+plot(Net975PredTest, residual)
+```
+
+```{r marketCapElastic975ResidualQQPlot}
+qqnorm(residual, pch = 1, frame = FALSE)
+qqline(residual, col = "steelblue", lwd = 2)
+```
+
+```{r marketCapElastic975ResidualStdResidualPlot}
+residualStd = residual/sd(residual)
+plot(Net975PredTest, residualStd)
+```
+
+```{r marketCapElastic975ResidualStdResidualPercent}
+x = residualStd[ residualStd > -3 & residualStd < 3]
+length(x)/length(residualStd)
+```
+
+```{r marketCapElastic975PlotModel}
+plot(markCapENet975Model)
+```
